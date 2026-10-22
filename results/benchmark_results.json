@@ -1,0 +1,82 @@
+{
+  "sizes": [
+    1024,
+    1048576,
+    10485760
+  ],
+  "aes": {
+    "1024": {
+      "size_bytes": 1024,
+      "encrypt_seconds": 9.440800022275653e-05,
+      "decrypt_seconds": 6.56810007058084e-05,
+      "total_seconds": 0.00016008900092856493,
+      "throughput_mib_per_s": 6.10012239651469
+    },
+    "1048576": {
+      "size_bytes": 1048576,
+      "encrypt_seconds": 0.0014954429989302298,
+      "decrypt_seconds": 0.0026016309984697727,
+      "total_seconds": 0.0040970739974000026,
+      "throughput_mib_per_s": 244.07662654728682
+    },
+    "10485760": {
+      "size_bytes": 10485760,
+      "encrypt_seconds": 0.016021658000681782,
+      "decrypt_seconds": 0.026691131000916357,
+      "total_seconds": 0.04271278900159814,
+      "throughput_mib_per_s": 234.12191602908067
+    }
+  },
+  "rsa_direct": {
+    "1024": {
+      "size_bytes": 1024,
+      "status": "too_large_for_direct_oaep",
+      "rsa_limit_bytes": 190,
+      "encrypt_seconds": null,
+      "decrypt_seconds": null,
+      "total_seconds": null
+    },
+    "1048576": {
+      "size_bytes": 1048576,
+      "status": "too_large_for_direct_oaep",
+      "rsa_limit_bytes": 190,
+      "encrypt_seconds": null,
+      "decrypt_seconds": null,
+      "total_seconds": null
+    },
+    "10485760": {
+      "size_bytes": 10485760,
+      "status": "too_large_for_direct_oaep",
+      "rsa_limit_bytes": 190,
+      "encrypt_seconds": null,
+      "decrypt_seconds": null,
+      "total_seconds": null
+    }
+  },
+  "hybrid": {
+    "1024": {
+      "size_bytes": 1024,
+      "status": "ok",
+      "encrypt_seconds": 0.0004968499997630715,
+      "decrypt_seconds": 0.002874146000976907,
+      "total_seconds": 0.0033709960007399786,
+      "throughput_mib_per_s": 0.2896955379910363
+    },
+    "1048576": {
+      "size_bytes": 1048576,
+      "status": "ok",
+      "encrypt_seconds": 0.0032668459989508847,
+      "decrypt_seconds": 0.0024921999993239297,
+      "total_seconds": 0.005759045998274814,
+      "throughput_mib_per_s": 173.63987026663114
+    },
+    "10485760": {
+      "size_bytes": 10485760,
+      "status": "ok",
+      "encrypt_seconds": 0.0294720160018187,
+      "decrypt_seconds": 0.0028086379988963017,
+      "total_seconds": 0.032280654000715,
+      "throughput_mib_per_s": 309.7830669656973
+    }
+  }
+}
