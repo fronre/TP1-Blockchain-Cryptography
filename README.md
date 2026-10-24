@@ -1,129 +1,233 @@
 # TP1 — Blockchain Cryptography
 
-This project implements a local blockchain cryptography lab on Linux Mint using Python 3.12 and OpenSSL 3.0. It stays entirely inside the current workspace and does not use any external network services.
+A local secure blockchain-inspired cryptography lab built in Python. The project demonstrates how a small distributed system can use a local Root CA, X.509 certificates, RSA key transport, ECDH session-key exchange, and AES-GCM authenticated encryption to securely move data between nodes over loopback-only sockets.
 
-## Project structure
+## Project goal
+
+This lab shows how the following primitives work together in practice:
+
+- Public-key identity through a local Certificate Authority
+- Certificate-based trust for each node
+- Secure key exchange using ECDH
+- Hybrid encryption using RSAش + AES-GCM
+- Local socket communication without external network access
+- Benchmarking to compare practical performance trade-offs
+
+## Repository structure
 
 - `ca/` — local Root CA certificate and private key
-- `nodes/` — generated node key material for Alice, Bob, Carol, and Dave
+- `nodes/` — per-node certificates, CSRs, RSA keys, and ECDH public keys
 - `src/blockchain_tp1/` — Python implementation
-- `tests/` — automated validation tests
-- `results/benchmark_results.json` — measured benchmark output
+- `tests/` — validation tests
+- `results/benchmark_results.json` — benchmark measurements
 
-## Virtual environment
+## Architecture overview
 
-Create and activate the project virtual environment:
+### 1. Local Root CA
+
+The project creates a self-signed root certificate authority in `ca/ca.crt` and `ca/ca.key`.
+The CA signs certificates for Alice, Bob, Carol, and Dave.
+This gives each node a local identity trusted by the lab environment.
+
+### 2. Node identity and certificates
+
+Each node is created with:
+
+- a 2048-bit RSA private key
+- a certificate signed by the local CA
+- a CSR for certificate generation
+- a public ECDH key used for session-key exchange
+
+### 3. Cryptographic primitives
+
+The implementation in `src/blockchain_tp1/crypto.py` includes:
+
+- RSA-OAEP encryption and decryption with SHA-256
+- AES-256-GCM encryption and decryption with authentication tags
+- tamper detection for modified ciphertext or tag values
+- ECDH key agreement using SECP256R1
+- HKDF-SHA256 derivation of session keys
+
+### 4. Secure message flow
+
+The data path is as follows:
+
+1. Alice and Bob exchange ECDH public keys.
+2. Each side derives the same shared secret.
+3. HKDF turns that secret into a 32-byte session key.
+4. The message payload is encrypted with AES-256-GCM.
+5. The session key is wrapped using the peer RSA public key.
+6. The encrypted payload and wrapped key are sent through a local socket.
+7. The receiver decrypts the wrapped session key with its RSA private key.
+8. The receiver decrypts the payload and validates the authentication tag.
+
+This is the classic hybrid encryption pattern:
+
+- RSA protects the session key
+- AES protects the actual data
+- GCM ensures confidentiality and integrity together
+
+## Run the project
+
+Create and activate the virtual environment:
 
 ```bash
-cd /home/islamhala/TP1-Blockchain
+cd /home/islamhala/Desktop/TP1-Blockchain
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-## Stage 1 — local Root CA
-
-A local Root Certificate Authority is created in `ca/ca.crt` and `ca/ca.key`.
-The CA signs X.509 certificates for Alice, Bob, Carol, and Dave under `nodes/<name>/`.
-
-Important note: private keys are written only inside the workspace and are never printed or transmitted. They stay local to the project.
-
-## Stage 2 — RSA, CSR, and X.509 generation
-
-The implementation in `src/blockchain_tp1/ca.py` creates:
-
-- a 4096-bit root CA key and self-signed certificate
-- 2048-bit RSA keypairs for each node
-- per-node CSRs and CA-issued certificates
-- node folders with `.key`, `.crt`, and `.csr` files
-
-## Stage 3 — crypto primitives
-
-The module `src/blockchain_tp1/crypto.py` implements:
-
-- RSA-OAEP encryption/decryption with SHA-256
-- AES-256-GCM encryption and decryption
-- tamper detection for ciphertext/tag changes
-- ECDH key agreement with SECP256R1
-- HKDF-SHA256 session-key derivation
-
-## Stage 4 — local socket messaging demo
-
-The local four-node demo lives in `src/blockchain_tp1/socket_demo.py` and `src/blockchain_tp1/node.py`.
-It starts local listeners on loopback ports 5001-5004, derives a shared ECDH session key, wraps it under the peer RSA public key, and then encrypts the payload with AES-256-GCM before sending it over the socket.
-
-Run a demo message:
+Run the demo:
 
 ```bash
-cd /home/islamhala/TP1-Blockchain
+cd /home/islamhala/Desktop/TP1-Blockchain
 . .venv/bin/activate
 export PYTHONPATH=src
 python -m blockchain_tp1.socket_demo
 ```
 
-## Stage 5 — traffic capture instructions
-
-To inspect loopback traffic with Wireshark:
+Run the tests:
 
 ```bash
-sudo wireshark -i lo
-```
-
-Then filter on:
-
-- `tcp.port == 5001 || tcp.port == 5002 || tcp.port == 5003 || tcp.port == 5004`
-- or `ip.addr == 127.0.0.1`
-
-To capture with tcpdump on localhost only:
-
-```bash
-sudo tcpdump -i lo -nn -A port 5001 or port 5002 or port 5003 or port 5004
-```
-
-This is a local-only loopback capture; no real external network is used.
-
-## Stage 6 — tests
-
-Run the automated test suite:
-
-```bash
-cd /home/islamhala/TP1-Blockchain
+cd /home/islamhala/Desktop/TP1-Blockchain
 . .venv/bin/activate
 export PYTHONPATH=src
 pytest -q
 ```
 
-Current status: 5 tests passed.
-
-## Stage 7 — benchmark and explanation
-
 Run the benchmark suite:
 
 ```bash
-cd /home/islamhala/TP1-Blockchain
+cd /home/islamhala/Desktop/TP1-Blockchain
 . .venv/bin/activate
 export PYTHONPATH=src
 python src/blockchain_tp1/benchmark.py
 ```
 
-Actual measured results from `results/benchmark_results.json`:
+Launch the Qt dashboard:
 
-- AES-256-GCM on 1 KB: 0.000095 seconds total (about 10.28 MiB/s)
-- AES-256-GCM on 1 MB: 0.00307 seconds total (about 326.08 MiB/s)
-- AES-256-GCM on 10 MB: 0.04984 seconds total (about 200.65 MiB/s)
-- RSA-OAEP direct encryption for 1 KB, 1 MB, and 10 MB: not feasible with a 2048-bit RSA key because the max OAEP plaintext size is only 190 bytes
-- Hybrid RSA + AES: successful for all tested sizes, with 10 MB at 0.03708 seconds total (about 269.72 MiB/s)
+```bash
+cd /home/islamhala/Desktop/TP1-Blockchain
+. .venv/bin/activate
+export PYTHONPATH=src
+python -m blockchain_tp1.gui.main
+```
 
-Why hybrid encryption is used:
+## Local network and traffic flow
 
-- RSA is excellent for key transport and authenticity, but it is not efficient for large payloads.
-- AES-GCM is fast for bulk encryption and provides authenticated encryption.
-- The practical workflow is: encrypt the session key with RSA, then encrypt the message body with AES-256-GCM using a random session key.
-- This preserves the confidentiality and authenticity properties of public-key cryptography while keeping the performance for large data practical.
+The demo is intentionally loopback-only:
+
+- Nodes listen on `127.0.0.1`
+- Ports: `5001` to `5004`
+- No internet access is used
+- No external service is required
+- Traffic is fully contained inside the current workspace environment
+
+This makes the lab safe, deterministic, and easy to inspect with tools like `tcpdump` or Wireshark.
+
+## Traffic inspection
+
+To view loopback traffic with Wireshark:
+
+```bash
+sudo wireshark -i lo
+```
+
+Useful filters:
+
+- `tcp.port == 5001 || tcp.port == 5002 || tcp.port == 5003 || tcp.port == 5004`
+- `ip.addr == 127.0.0.1`
+
+To inspect with tcpdump:
+
+```bash
+sudo tcpdump -i lo -nn -A port 5001 or port 5002 or port 5003 or port 5004
+```
+
+## Test status
+
+The current automated test status is:
+
+- 6 tests passed
+
+This covers the CA, cryptographic primitives, node demo flow, and the GUI smoke test.
+
+## Benchmark summary
+
+The benchmark results in `results/benchmark_results.json` demonstrate the expected behavior:
+
+- AES-GCM is very fast for large payloads
+- Direct RSA encryption is limited by OAEP size constraints
+- Hybrid RSA + AES is the practical solution for larger messages
+- The lab validates that key transport and bulk encryption are separated cleanly
+
+Representative results:
+
+- AES-GCM on 10 MB: about 234 MiB/s
+- Hybrid RSA + AES on 10 MB: about 310 MiB/s
+- Direct RSA-OAEP is infeasible for payloads larger than about 190 bytes under a 2048-bit key
+
+## Why this matters
+
+This project shows a realistic minimum viable secure data flow:
+
+- identify each party with certificates
+- exchange shared ephemeral keys
+- protect the payload with symmetric encryption
+- preserve integrity with authentication tags
+- keep the communication local and private by design
 
 ## Notes
 
-- The project intentionally uses loopback-only traffic.
-- No real external services, no internet network calls, and no private-key exposure are involved.
-- The benchmark file is generated locally and kept under `results/`.
+- Private keys remain local to the workspace and are not transmitted externally.
+- The demo is educational and intentionally restricted to localhost.
+- The system is built for safe local experimentation and demonstration.
+
+## Fixed cryptographic design
+
+This repository uses a consistent hybrid-encryption flow for authenticated local messaging:
+
+1. Each node keeps a persistent ECDH keypair on SECP256R1.
+2. The public ECDH key is stored under each node directory and loaded by peers.
+3. Alice and Bob derive the same shared secret using ECDH.
+4. The shared secret is converted to a 32-byte AES key with HKDF-SHA256 using an order-invariant context derived from the sorted peer names and a fixed label.
+5. The payload is encrypted with AES-256-GCM using a fresh nonce and authenticated data (AAD).
+6. The AES key is wrapped with the peer RSA public key via RSA-OAEP-SHA256 for transport.
+7. The receiver decrypts the wrapped key with its RSA private key, validates the HKDF context, decrypts with AES-GCM, and rejects any tampered nonce, ciphertext, or authentication tag.
+
+This avoids the previous bug where the HKDF info string depended on the local node name and caused different session keys for the same peer pair.
+
+## Security limitations
+
+- The lab is intentionally loopback-only and is not a production PKI.
+- The local CA is a demonstrator root; it should not be used outside a trusted lab environment.
+- The ECDH keys are persistent in this project for simplicity and reproducibility, but they are still stored only under the local node directories and not exported.
+- The network metadata such as sender, receiver, nonce, salt, and ciphertext length are visible on the wire; only the payload confidentiality and integrity are protected by AES-GCM.
+- Packet capture may reveal the plaintext size and protocol metadata even when the payload itself is encrypted.
+
+## Four-node demo and capture
+
+Run the four-node local demo:
+
+```bash
+cd /home/islamhala/Desktop/TP1-Blockchain
+. .venv/bin/activate
+export PYTHONPATH=src
+python -m blockchain_tp1.socket_demo
+```
+
+The secure demo uses the encrypted message path. To inspect loopback traffic, run:
+
+```bash
+sudo tcpdump -i lo -nn -A port 5001 or port 5002 or port 5003 or port 5004
+```
+
+or:
+
+```bash
+sudo wireshark -i lo
+```
+
+This project was not verified with an actual Wireshark or tcpdump capture in this session, so packet capture output should be treated as a documented procedure rather than a confirmed runtime result.

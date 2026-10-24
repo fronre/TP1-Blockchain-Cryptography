@@ -23,6 +23,12 @@ def ensure_demo_material() -> None:
 
 def _start_demo_servers(nodes: dict[str, BlockchainNode]) -> tuple[threading.Event, list[threading.Thread]]:
     global _DEMO_STATE
+    if _DEMO_STATE is not None:
+        old_stop_event = _DEMO_STATE["stop_event"]
+        old_stop_event.set()
+        for thread in _DEMO_STATE["threads"]:
+            thread.join(timeout=1.0)
+
     stop_event = threading.Event()
     threads = []
     for node in nodes.values():
@@ -38,9 +44,10 @@ def build_nodes() -> dict[str, BlockchainNode]:
     ensure_demo_material()
     nodes = {}
     for name in ["alice", "bob", "carol", "dave"]:
-        nodes[name] = BlockchainNode(name, Path("ca/ca.crt"), Path("nodes"), port=PORTS[name])
-    if _DEMO_STATE is None:
-        _start_demo_servers(nodes)
+        node = BlockchainNode(name, Path("ca/ca.crt"), Path("nodes"), port=PORTS[name])
+        node.incoming_messages.clear()
+        nodes[name] = node
+    _start_demo_servers(nodes)
     return nodes
 
 

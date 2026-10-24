@@ -11,6 +11,20 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa, ec
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
+SESSION_INFO_PREFIX = b"blockchain_tp1/session/v1"
+
+
+def derive_session_context(sender: str, receiver: str, label: str = "default") -> bytes:
+    """Create a deterministic HKDF context that is identical on both sides.
+
+    The same peer pair must derive the same session key regardless of which node
+    initiated the exchange. Sorting the names prevents the previous bug where
+    Alice and Bob derived different keys because the info string included the
+    local node name.
+    """
+    ordered = sorted((sender, receiver))
+    return f"{SESSION_INFO_PREFIX.decode()}|{ordered[0]}|{ordered[1]}|{label}".encode("utf-8")
+
 
 def generate_rsa_keypair(bits: int = 2048) -> tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey]:
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=bits)
@@ -79,13 +93,17 @@ def generate_ecdh_keypair(curve: str = "SECP256R1") -> tuple[ec.EllipticCurvePri
 
 
 def ecdh_shared_secret(private_key: ec.EllipticCurvePrivateKey, peer_public_key: ec.EllipticCurvePublicKey) -> bytes:
+    if not isinstance(private_key, ec.EllipticCurvePrivateKey):
+        raise TypeError("private_key must be an EC private key")
+    if not isinstance(peer_public_key, ec.EllipticCurvePublicKey):
+        raise TypeError("peer_public_key must be an EC public key")
     shared = private_key.exchange(ec.ECDH(), peer_public_key)
     return shared
 
 
-def hkdf_derive_key(shared_secret: bytes, salt: Optional[bytes] = None, info: bytes = b"tp1-session") -> bytes:
+def hkdf_derive_key(shared_secret: bytes, salt: Optional[bytes] = None, info: bytes = b"blockchain_tp1/session/v1") -> bytes:
     if salt is None:
-        salt = b"" 
+        salt = b""
     return HKDF(
         algorithm=hashes.SHA256(),
         length=32,
